@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 作詞スタジオ</title>
+<style>
+  :root {
+    --bg: #14121f;
+    --panel: #1e1b2e;
+    --panel-line: #2e2a44;
+    --ink: #eceaf4;
+    --muted: #918ba8;
+    --gold: #f2c14e;
+    --paper: #f7f3e8;
+    --paper-ink: #2a2438;
+    --paper-muted: #8b8378;
+    --error: #ef8a8a;
+    --serif: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif;
+    --sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 70% -10%, #241f3d 0%, var(--bg) 55%);
+    color: var(--ink);
+    font-family: var(--sans);
+  }
+
+  /* ===== ログイン画面 ===== */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    padding: 40px 32px;
+    text-align: center;
+  }
+  .brand {
+    color: var(--gold);
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    margin-bottom: 14px;
+  }
+  .login-card h1 {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+  .login-card p {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+    line-height: 1.8;
+  }
+  #pw-input {
+    width: 100%;
+    background: #161326;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    text-align: center;
+    letter-spacing: 0.2em;
+    padding: 12px 14px;
+    outline: none;
+  }
+  #pw-input.error { border-color: var(--error); }
+  #pw-error {
+    color: var(--error);
+    font-size: 12px;
+    margin: 10px 0 0;
+    display: none;
+  }
+  .btn-primary {
+    margin-top: 18px;
+    width: 100%;
+    padding: 13px 0;
+    border-radius: 10px;
+    border: none;
+    background: var(--gold);
+    color: #1d1830;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: background .2s;
+  }
+  .btn-primary:disabled {
+    background: #3a3550;
+    color: var(--muted);
+    cursor: default;
+  }
+
+  /* ===== タブ ===== */
+  .tab-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    letter-spacing: 0.05em;
+  }
+  .tab-btn.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    font-weight: 700;
+  }
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* ===== 音源生成タブ ===== */
+  .music-note {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+    margin: 0 0 16px;
+  }
+  .music-note a { color: var(--gold); }
+  #mini-lyrics {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  #mini-lyrics .mini-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  #mini-lyrics .mini-title {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  #mini-lyrics .mini-hint { color: var(--muted); font-size: 12px; }
+  #mini-lyrics-body {
+    display: none;
+    margin-top: 14px;
+    max-height: 260px;
+    overflow-y: auto;
+    border-top: 1px solid var(--panel-line);
+    padding-top: 14px;
+  }
+  #mini-lyrics-body .section-label {
+    color: var(--muted);
+    border-bottom-color: var(--panel-line);
+  }
+  #mini-lyrics-body p {
+    font-family: var(--serif);
+    font-size: 14px;
+    line-height: 1.9;
+    margin: 0;
+    color: var(--ink);
+  }
+  #mini-copy-btn {
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-line);
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--sans);
+    cursor: pointer;
+  }
+  #nocturne-frame {
+    width: 100%;
+    height: 78vh;
+    min-height: 560px;
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    background: #05070f;
+  }
+
+  /* ===== メイン画面 ===== */
+  #app-screen { display: none; padding: 40px 20px 80px; }
+  .container { max-width: 720px; margin: 0 auto; }
+  header { margin-bottom: 36px; }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  #logout-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--sans);
+    text-decoration: underline;
+  }
+  header h1 {
+    font-family: var(--serif);
+    font-size: 34px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.35;
+  }
+  header h1 .gold { color: var(--gold); }
+  header .lead {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 12px;
+    line-height: 1.8;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .field-label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  #brief {
+    width: 100%;
+    background: #161326;
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.8;
+    padding: 12px 14px;
+    resize: vertical;
+    outline: none;
+    min-height: 110px;
+  }
+  .group { margin-top: 16px; }
+  .group-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-line);
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .chip.active {
+    border-color: var(--gold);
+    background: rgba(242,193,78,0.12);
+    color: var(--gold);
+  }
+  #generate-btn { margin-top: 22px; font-size: 16px; letter-spacing: 0.1em; padding: 14px 0; }
+  #gen-error {
+    color: var(--error);
+    font-size: 13px;
+    margin: 12px 0 0;
+    display: none;
+  }
+
+  #loading {
+    display: none;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 40px;
+    font-family: var(--serif);
+  }
+
+  /* ===== 歌詞シート ===== */
+  #sheet {
+    display: none;
+    margin-top: 40px;
+    background: var(--paper);
+    color: var(--paper-ink);
+    border-radius: 6px;
+    padding: 48px 40px 56px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    background-image: repeating-linear-gradient(transparent, transparent 35px, rgba(42,36,56,0.06) 35px, rgba(42,36,56,0.06) 36px);
+  }
+  .sheet-eyebrow {
+    text-align: center;
+    margin-bottom: 8px;
+    color: var(--paper-muted);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+  }
+  #song-title {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 600;
+    text-align: center;
+    margin: 0 0 6px;
+  }
+  #song-theme {
+    text-align: center;
+    color: var(--paper-muted);
+    font-size: 13px;
+    margin: 0 0 36px;
+    font-family: var(--serif);
+  }
+  .section { margin-bottom: 30px; }
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--paper-muted);
+    border-bottom: 1px solid rgba(42,36,56,0.2);
+    display: inline-block;
+    padding-bottom: 2px;
+    margin-bottom: 12px;
+  }
+  .section p {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 2.1;
+    margin: 0;
+  }
+  .sheet-footer { text-align: center; margin-top: 40px; }
+  #copy-btn {
+    padding: 10px 28px;
+    border-radius: 999px;
+    border: 1px solid rgba(42,36,56,0.35);
+    background: transparent;
+    color: var(--paper-ink);
+    font-size: 13px;
+    font-family: var(--sans);
+    cursor: pointer;
+  }
+
+  @media (max-width: 480px) {
+    header h1 { font-size: 26px; }
+    #sheet { padding: 36px 22px 44px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ログイン画面 -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="brand">AI 作詞スタジオ</div>
+    <h1>Members Only</h1>
+    <p>パスワードを入力して入室してください</p>
+    <input type="password" id="pw-input" placeholder="パスワード" autofocus>
+    <p id="pw-error">パスワードが違います</p>
+    <button class="btn-primary" id="login-btn" disabled>入室する</button>
+  </div>
+</div>
+
+<!-- メイン画面 -->
+<div id="app-screen">
+  <div class="container">
+    <header>
+      <div class="header-top">
+        <div class="brand" style="font-size:12px;">AI 作詞スタジオ</div>
+        <button id="logout-btn">退室する</button>
+      </div>
+      <h1>雰囲気を書けば、<span class="gold">一曲</span>になる。</h1>
+      <p class="lead">歌詞を書き上げたら、そのまま「音源生成」タブでコード進行とメロディーまで作れます。</p>
+    </header>
+
+    <nav class="tab-bar">
+      <button class="tab-btn active" id="tab-btn-lyrics">✎ 作詞</button>
+      <button class="tab-btn" id="tab-btn-music">♪ 音源生成 (NOCTURNE)</button>
+    </nav>
+
+    <!-- ===== 作詞タブ ===== -->
+    <div class="tab-page active" id="tab-lyrics">
+
+    <section class="panel">
+      <label class="field-label" for="brief">作りたい雰囲気・方向性</label>
+      <textarea id="brief" placeholder="例: 深夜の首都高をひとりで走る、少し切ないけど心地いいシティポップ。ネオンと夜風のイメージ。"></textarea>
+
+      <div class="group">
+        <div class="group-label">ジャンル</div>
+        <div class="chips" id="genre-chips"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">言語</div>
+        <div class="chips" id="lang-chips"></div>
+      </div>
+
+      <div class="group">
+        <div class="group-label">視点</div>
+        <div class="chips" id="pov-chips"></div>
+      </div>
+
+      <button class="btn-primary" id="generate-btn" disabled>作詞する</button>
+      <p id="gen-error">歌詞をうまく生成できませんでした。もう一度「作詞する」を押してください。</p>
+    </section>
+
+    <div id="loading">言葉を探しています……</div>
+
+    <section id="sheet">
+      <div class="sheet-eyebrow">LYRIC SHEET</div>
+      <h2 id="song-title"></h2>
+      <p id="song-theme"></p>
+      <div id="sections"></div>
+      <div class="sheet-footer">
+        <button id="copy-btn">歌詞をコピー</button>
+        <button id="to-music-btn" style="margin-left:10px; padding:10px 28px; border-radius:999px; border:none; background:var(--paper-ink); color:var(--paper); font-size:13px; font-family:var(--sans); cursor:pointer;">♪ この歌詞で音源を作る</button>
+      </div>
+    </section>
+
+    </div><!-- /tab-lyrics -->
+
+    <!-- ===== 音源生成タブ ===== -->
+    <div class="tab-page" id="tab-music">
+      <p class="music-note">
+        NOCTURNE でジャンル・雰囲気を選んで「新しく生成」→「▶ 再生」すると、コード進行とメロディーがその場で鳴ります。
+        下の歌詞を見ながら、曲の雰囲気に合う音源を作ってください。
+        画面が表示されない場合は <a href="https://ayai-dev.github.io/nm-x7k2m9-piano/" target="_blank" rel="noopener">別タブで NOCTURNE を開く ↗</a>
+      </p>
+
+      <div id="mini-lyrics">
+        <div class="mini-head" id="mini-head">
+          <span class="mini-title" id="mini-title">まだ歌詞がありません — 「作詞」タブで生成してください</span>
+          <span style="display:flex; gap:10px; align-items:center;">
+            <button id="mini-copy-btn" style="display:none;">コピー</button>
+            <span class="mini-hint" id="mini-toggle-hint">▼ 開く</span>
+          </span>
+        </div>
+        <div id="mini-lyrics-body"></div>
+      </div>
+
+      <iframe id="nocturne-frame" src="https://ayai-dev.github.io/nm-x7k2m9-piano/" title="NOCTURNE - コード&メロディー生成" allow="autoplay"></iframe>
+    </div><!-- /tab-music -->
+  </div>
+</div>
+
+<script>
+// ================================================
+// パスワード設定: ここを好きなパスワードに変更してください
+const PASSWORD = "MUSIC2026";
+// ================================================
+
+const GENRES = ["シティポップ", "ピアノ&DIVA", "フュージョン", "R&B", "ヒーリング", "JAZZ"];
+const LANGUAGES = ["日本語", "English", "日英ミックス"];
+const PERSPECTIVES = ["おまかせ", "一人称（僕/私）", "二人称（君へ）", "情景描写中心"];
+
+const GENRE_HINTS = {
+  "シティポップ": "都会の夜景、ドライブ、ネオン、80s〜90sの洒落た大人のムード。軽やかでグルーヴィーな言葉選び",
+  "ピアノ&DIVA": "ピアノ一本と歌姫の歌声が映えるドラマチックなバラード。感情の起伏とロングトーンで聴かせるフレーズ",
+  "フュージョン": "洗練されたコード感と浮遊感。抽象的でスタイリッシュなイメージ、リズミカルな言葉の乗せ方",
+  "R&B": "スムースでソウルフル。恋愛の機微や夜の空気感を、メロウで色気のある言葉で",
+  "ヒーリング": "静けさ、自然、呼吸、光。聴く人の心をほどく優しく穏やかな言葉。攻撃的な表現は避ける",
+  "JAZZ": "スタンダードナンバーのような洒脱さ。スウィング感、酒場や真夜中の情景、ウィットの効いた表現"
+};
+
+let genre = GENRES[0];
+let lang = LANGUAGES[0];
+let pov = PERSPECTIVES[0];
+let currentSong = null;
+let loading = false;
+
+// ---------- 要素 ----------
+const loginScreen = document.getElementById("login-screen");
+const appScreen = document.getElementById("app-screen");
+const pwInput = document.getElementById("pw-input");
+const pwError = document.getElementById("pw-error");
+const loginBtn = document.getElementById("login-btn");
+const logoutBtn = document.getElementById("logout-btn");
+const briefEl = document.getElementById("brief");
+const generateBtn = document.getElementById("generate-btn");
+const genError = document.getElementById("gen-error");
+const loadingEl = document.getElementById("loading");
+const sheetEl = document.getElementById("sheet");
+const titleEl = document.getElementById("song-title");
+const themeEl = document.getElementById("song-theme");
+const sectionsEl = document.getElementById("sections");
+const copyBtn = document.getElementById("copy-btn");
+
+// ---------- ログイン ----------
+pwInput.addEventListener("input", () => {
+  loginBtn.disabled = !pwInput.value;
+  pwInput.classList.remove("error");
+  pwError.style.display = "none";
+});
+pwInput.addEventListener("keydown", (e) => { if (e.key === "Enter") tryLogin(); });
+loginBtn.addEventListener("click", tryLogin);
+
+function tryLogin() {
+  if (!pwInput.value) return;
+  if (pwInput.value === PASSWORD) {
+    loginScreen.style.display = "none";
+    appScreen.style.display = "block";
+    pwInput.value = "";
+    loginBtn.disabled = true;
+  } else {
+    pwInput.classList.add("error");
+    pwError.style.display = "block";
+  }
+}
+
+logoutBtn.addEventListener("click", () => {
+  appScreen.style.display = "none";
+  loginScreen.style.display = "flex";
+  pwInput.focus();
+});
+
+// ---------- チップUI ----------
+function renderChips(containerId, items, getCurrent, setCurrent) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = "";
+  items.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (getCurrent() === item ? " active" : "");
+    btn.textContent = item;
+    btn.addEventListener("click", () => {
+      setCurrent(item);
+      renderChips(containerId, items, getCurrent, setCurrent);
+    });
+    el.appendChild(btn);
+  });
+}
+renderChips("genre-chips", GENRES, () => genre, (v) => genre = v);
+renderChips("lang-chips", LANGUAGES, () => lang, (v) => lang = v);
+renderChips("pov-chips", PERSPECTIVES, () => pov, (v) => pov = v);
+
+// ---------- 生成 ----------
+briefEl.addEventListener("input", updateGenerateBtn);
+function updateGenerateBtn() {
+  generateBtn.disabled = !briefEl.value.trim() || loading;
+}
+
+function buildPrompt() {
+  let langRule;
+  if (lang === "English") {
+    langRule = "- 歌詞はすべて自然な英語で書く。曲名も英語。ネイティブが書いたような語感・韻・リズムを重視する\n- themeのみ日本語で書く";
+  } else if (lang === "日英ミックス") {
+    langRule = "- 日本語を基調に、サビのフックや決め台詞に自然な英語フレーズを織り交ぜる(洋楽的なJ-R&B/シティポップの語感)";
+  } else {
+    langRule = "- 歌詞はすべて日本語で書く";
+  }
+
+  return `あなたはプロの作詞家です。以下の依頼をもとに、1曲分の歌詞を書いてください。
+
+【作りたい雰囲気・方向性】
+${briefEl.value.trim()}
+
+【ジャンル】${genre} — ${GENRE_HINTS[genre]}
+【視点】${pov === "おまかせ" ? "依頼内容から最適なものを選ぶ" : pov}
+【言語】${lang}
+
+条件:
+- 曲の構成は「Aメロ → Bメロ → サビ → 2番Aメロ → 2番サビ → ブリッジ(Cメロ) → ラストサビ」を基本にする(ジャンルに合えばVerse/Chorus表記や構成変更も可)
+- 各セクションは4〜6行、1行は歌いやすい長さにする
+- 陳腐な決まり文句を避け、依頼の雰囲気を具体的なイメージや情景で表現する
+- ジャンルのサウンドが目に浮かぶような言葉選びをする
+- タイトルも付ける
+${langRule}
+
+必ず次のJSON形式のみで返答してください。前置き・後書き・マークダウンの装飾は一切書かないでください:
+{"title":"曲名","theme":"この曲のコンセプトを一文で","sections":[{"label":"Aメロ","lines":["行1","行2"]}]}`;
+}
+
+generateBtn.addEventListener("click", generate);
+
+async function generate() {
+  if (!briefEl.value.trim() || loading) return;
+  loading = true;
+  genError.style.display = "none";
+  sheetEl.style.display = "none";
+  loadingEl.style.display = "block";
+  generateBtn.disabled = true;
+  generateBtn.textContent = "作詞中……";
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: buildPrompt() }]
+      })
+    });
+    const data = await res.json();
+    const text = (data.content || []).map((b) => (b.type === "text" ? b.text : "")).join("");
+    const clean = text.replace(/```json|```/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    const parsed = JSON.parse(clean.slice(start, end + 1));
+    if (!parsed.title || !Array.isArray(parsed.sections)) throw new Error("形式エラー");
+    currentSong = parsed;
+    renderSong(parsed);
+    updateMiniLyrics();
+  } catch (e) {
+    console.error("生成エラー:", e);
+    genError.style.display = "block";
+  } finally {
+    loading = false;
+    loadingEl.style.display = "none";
+    generateBtn.textContent = currentSong ? "もう一度 作詞する" : "作詞する";
+    updateGenerateBtn();
+  }
+}
+
+function renderSong(song) {
+  titleEl.textContent = "「" + song.title + "」";
+  if (song.theme) {
+    themeEl.textContent = "— " + song.theme + " —";
+    themeEl.style.display = "block";
+  } else {
+    themeEl.style.display = "none";
+  }
+  sectionsEl.innerHTML = "";
+  song.sections.forEach((sec) => {
+    const div = document.createElement("div");
+    div.className = "section";
+    const label = document.createElement("div");
+    label.className = "section-label";
+    label.textContent = sec.label;
+    div.appendChild(label);
+    (sec.lines || []).forEach((line) => {
+      const p = document.createElement("p");
+      p.textContent = line;
+      div.appendChild(p);
+    });
+    sectionsEl.appendChild(div);
+  });
+  sheetEl.style.display = "block";
+  sheetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- タブ切替 ----------
+const tabBtnLyrics = document.getElementById("tab-btn-lyrics");
+const tabBtnMusic = document.getElementById("tab-btn-music");
+const tabLyrics = document.getElementById("tab-lyrics");
+const tabMusic = document.getElementById("tab-music");
+
+function switchTab(name) {
+  const isLyrics = name === "lyrics";
+  tabBtnLyrics.classList.toggle("active", isLyrics);
+  tabBtnMusic.classList.toggle("active", !isLyrics);
+  tabLyrics.classList.toggle("active", isLyrics);
+  tabMusic.classList.toggle("active", !isLyrics);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+tabBtnLyrics.addEventListener("click", () => switchTab("lyrics"));
+tabBtnMusic.addEventListener("click", () => switchTab("music"));
+
+// ---------- 音源タブの歌詞ミニパネル ----------
+const miniHead = document.getElementById("mini-head");
+const miniTitle = document.getElementById("mini-title");
+const miniBody = document.getElementById("mini-lyrics-body");
+const miniToggleHint = document.getElementById("mini-toggle-hint");
+const miniCopyBtn = document.getElementById("mini-copy-btn");
+let miniOpen = false;
+
+miniHead.addEventListener("click", (e) => {
+  if (e.target === miniCopyBtn) return;
+  if (!currentSong) return;
+  miniOpen = !miniOpen;
+  miniBody.style.display = miniOpen ? "block" : "none";
+  miniToggleHint.textContent = miniOpen ? "▲ 閉じる" : "▼ 開く";
+});
+
+function songToText(song) {
+  return "「" + song.title + "」\n\n" +
+    song.sections.map((s) => "【" + s.label + "】\n" + (s.lines || []).join("\n")).join("\n\n");
+}
+
+function updateMiniLyrics() {
+  if (!currentSong) return;
+  miniTitle.textContent = "♪ 「" + currentSong.title + "」の歌詞";
+  miniCopyBtn.style.display = "inline-block";
+  miniBody.innerHTML = "";
+  currentSong.sections.forEach((sec) => {
+    const div = document.createElement("div");
+    div.className = "section";
+    div.style.marginBottom = "18px";
+    const label = document.createElement("div");
+    label.className = "section-label";
+    label.textContent = sec.label;
+    div.appendChild(label);
+    (sec.lines || []).forEach((line) => {
+      const p = document.createElement("p");
+      p.textContent = line;
+      div.appendChild(p);
+    });
+    miniBody.appendChild(div);
+  });
+}
+
+miniCopyBtn.addEventListener("click", async () => {
+  if (!currentSong) return;
+  try {
+    await navigator.clipboard.writeText(songToText(currentSong));
+    miniCopyBtn.textContent = "コピーしました ✓";
+    setTimeout(() => { miniCopyBtn.textContent = "コピー"; }, 1800);
+  } catch (e) { console.error(e); }
+});
+
+// ---------- 「この歌詞で音源を作る」ボタン ----------
+document.getElementById("to-music-btn").addEventListener("click", () => {
+  miniOpen = true;
+  miniBody.style.display = "block";
+  miniToggleHint.textContent = "▲ 閉じる";
+  switchTab("music");
+});
+
+// ---------- コピー ----------
+copyBtn.addEventListener("click", async () => {
+  if (!currentSong) return;
+  const text =
+    "「" + currentSong.title + "」\n\n" +
+    currentSong.sections
+      .map((s) => "【" + s.label + "】\n" + (s.lines || []).join("\n"))
+      .join("\n\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    copyBtn.textContent = "コピーしました ✓";
+    setTimeout(() => { copyBtn.textContent = "歌詞をコピー"; }, 1800);
+  } catch (e) {
+    console.error(e);
+  }
+});
+</script>
+</body>
+</html>
